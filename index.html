@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Змейка</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  
+  body {
+    min-height: 100vh;
+    background: radial-gradient(circle at 50% 30%, #0f2027 0%, #203a43 50%, #0a0e14 100%);
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  .title {
+    font-size: 26px;
+    font-weight: 900;
+    margin-bottom: 15px;
+    background: linear-gradient(90deg, #4ade80, #22d3ee, #a855f7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 3px;
+  }
+
+  .stats {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+    font-size: 14px;
+  }
+
+  .stat {
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    padding: 8px 18px;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(74, 222, 128, 0.2);
+  }
+
+  .stat-label {
+    color: #86efac;
+    font-size: 11px;
+    letter-spacing: 1px;
+    margin-right: 6px;
+  }
+
+  .stat-value {
+    color: #fff;
+    font-weight: 900;
+    font-size: 16px;
+  }
+
+  .game-container {
+    position: relative;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid rgba(74, 222, 128, 0.4);
+    border-radius: 18px;
+    padding: 8px;
+    box-shadow: 0 0 40px rgba(74, 222, 128, 0.3), inset 0 0 30px rgba(0, 0, 0, 0.5);
+  }
+
+  canvas {
+    display: block;
+    border-radius: 12px;
+    background: #0a0e14;
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Экран проигрыша */
+  .game-over {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    z-index: 10;
+  }
+
+  .game-over.show { display: flex; }
+
+  .game-over h2 {
+    font-size: 28px;
+    color: #ef4444;
+    margin-bottom: 10px;
+    text-shadow: 0 0 20px #ef4444;
+  }
+
+  .game-over p {
+    font-size: 16px;
+    color: #86efac;
+    margin-bottom: 5px;
+  }
+
+  .game-over .final {
+    font-size: 36px;
+    font-weight: 900;
+    color: #fff;
+    margin: 10px 0 25px;
+    text-shadow: 0 0 20px #4ade80;
+  }
+
+  .restart-btn {
+    background: linear-gradient(135deg, #4ade80, #22d3ee);
+    border: none;
+    color: #0a0e14;
+    padding: 14px 40px;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 0 25px rgba(74, 222, 128, 0.6);
+    letter-spacing: 1px;
+  }
+
+  .restart-btn:active { transform: scale(0.95); }
+
+  /* Кнопки управления */
+  .controls {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(3, 60px);
+    grid-template-rows: repeat(2, 60px);
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .ctrl-btn {
+    background: rgba(74, 222, 128, 0.15);
+    border: 2px solid rgba(74, 222, 128, 0.5);
+    border-radius: 14px;
+    color: #4ade80;
+    font-size: 24px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(74, 222, 128, 0.2);
+  }
+
+  .ctrl-btn:active {
+    background: rgba(74, 222, 128, 0.4);
+    transform: scale(0.9);
+    box-shadow: 0 0 25px rgba(74, 222, 128, 0.6);
+  }
+
+  .ctrl-up { grid-column: 2; grid-row: 1; }
+  .ctrl-left { grid-column: 1; grid-row: 2; }
+  .ctrl-down { grid-column: 2; grid-row: 2; }
+  .ctrl-right { grid-column: 3; grid-row: 2; }
+
+  .hint {
+    margin-top: 15px;
+    font-size: 12px;
+    color: #6b7280;
+    text-align: center;
+  }
+
+  @media (max-width: 400px) {
+    .controls {
+      grid-template-columns: repeat(3, 55px);
+      grid-template-rows: repeat(2, 55px);
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="title">ЗМЕЙКА</div>
+
+<div class="stats">
+  <div class="stat">
+    <span class="stat-label">СЧЁТ</span>
+    <span class="stat-value" id="score">0</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">РЕКОРД</span>
+    <span class="stat-value" id="best">0</span>
+  </div>
+</div>
+
+<div class="game-container">
+  <canvas id="game" width="320" height="320"></canvas>
+  <div class="game-over" id="gameOver">
+    <h2>ИГРА ОКОНЧЕНА</h2>
+    <p>Твой счёт:</p>
+    <div class="final" id="finalScore">0</div>
+    <button class="restart-btn" onclick="startGame()">ИГРАТЬ СНОВА</button>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="ctrl-btn ctrl-up" onclick="setDir(0,-1)">▲</button>
+  <button class="ctrl-btn ctrl-left" onclick="setDir(-1,0)">◀</button>
+  <button class="ctrl-btn ctrl-down" onclick="setDir(0,1)">▼</button>
+  <button class="ctrl-btn ctrl-right" onclick="setDir(1,0)">▶</button>
+</div>
+
+<div class="hint">Управляй кнопками или свайпами по экрану</div>
+
+<script>
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  const CELL = 16;
+  const COLS = canvas.width / CELL;
+  const ROWS = canvas.height / CELL;
+
+  let snake, dir, nextDir, food, score, best, speed, gameLoop, running;
+
+  best = parseInt(localStorage.getItem('snakeBest') || '0');
+  document.getElementById('best').textContent = best;
+
+  function startGame() {
+    snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
+    dir = {x: 1, y: 0};
+    nextDir = {x: 1, y: 0};
+    score = 0;
+    speed = 150;
+    running = true;
+    document.getElementById('score').textContent = 0;
+    document.getElementById('gameOver').classList.remove('show');
+    placeFood();
+    clearInterval(gameLoop);
+    gameLoop = setInterval(tick, speed);
+    draw();
+  }
+
+  function placeFood() {
+    let valid = false;
+    while (!valid) {
+      food = {
+        x: Math.floor(Math.random() * COLS),
+        y: Math.floor(Math.random() * ROWS)
+      };
+      valid = !snake.some(s => s.x === food.x && s.y === food.y);
+    }
+  }
+
+  function setDir(x, y) {
+    if (!running) return;
+    // Нельзя развернуться на 180
+    if (dir.x === -x && dir.y === -y) return;
+    nextDir = {x, y};
+  }
+
+  function tick() {
+    dir = nextDir;
+    const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+
+    // Столкновение со стеной
+    if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
+      return gameOver();
+    }
+    // Столкновение с собой
+    if (snake.some(s => s.x === head.x && s.y === head.y)) {
+      return gameOver();
+    }
+
+    snake.unshift(head);
+
+    // Съел еду
+    if (head.x === food.x && head.y === food.y) {
+      score++;
+      document.getElementById('score').textContent = score;
+      placeFood();
+      // Ускорение
+      if (speed > 60) {
+        speed -= 3;
+        clearInterval(gameLoop);
+        gameLoop = setInterval(tick, speed);
+      }
+    } else {
+      snake.pop();
+    }
+
+    draw();
+  }
+
+  function draw() {
+    // Фон
+    ctx.fillStyle = '#0a0e14';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Сетка
+    ctx.strokeStyle = 'rgba(74, 222, 128, 0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= COLS; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * CELL, 0);
+      ctx.lineTo(i * CELL, canvas.height);
+      ctx.stroke();
+    }
+    for (let i = 0; i <= ROWS; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, i * CELL);
+      ctx.lineTo(canvas.width, i * CELL);
+      ctx.stroke();
+    }
+
+    // Еда
+    ctx.fillStyle = '#ef4444';
+    ctx.shadowColor = '#ef4444';
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.arc(food.x * CELL + CELL/2, food.y * CELL + CELL/2, CELL/2 - 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Змейка
+    snake.forEach((s, i) => {
+      const alpha = 1 - (i / snake.length) * 0.5;
+      ctx.fillStyle = i === 0 ? '#4ade80' : `rgba(34, 211, 238, ${alpha})`;
+      ctx.shadowColor = i === 0 ? '#4ade80' : '#22d3ee';
+      ctx.shadowBlur = i === 0 ? 15 : 8;
+      
+      const padding = i === 0 ? 1 : 2;
+      ctx.fillRect(
+        s.x * CELL + padding,
+        s.y * CELL + padding,
+        CELL - padding * 2,
+        CELL - padding * 2
+      );
+    });
+    ctx.shadowBlur = 0;
+
+    // Глаза у головы
+    if (snake[0]) {
+      const h = snake[0];
+      ctx.fillStyle = '#0a0e14';
+      const eyeSize = 2.5;
+      let eye1, eye2;
+      
+      if (dir.x === 1) {
+        eye1 = {x: h.x * CELL + 11, y: h.y * CELL + 4};
+        eye2 = {x: h.x * CELL + 11, y: h.y * CELL + 10};
+      } else if (dir.x === -1) {
+        eye1 = {x: h.x * CELL + 5, y: h.y * CELL + 4};
+        eye2 = {x: h.x * CELL + 5, y: h.y * CELL + 10};
+      } else if (dir.y === 1) {
+        eye1 = {x: h.x * CELL + 4, y: h.y * CELL + 11};
+        eye2 = {x: h.x * CELL + 10, y: h.y * CELL + 11};
+      } else {
+        eye1 = {x: h.x * CELL + 4, y: h.y * CELL + 5};
+        eye2 = {x: h.x * CELL + 10, y: h.y * CELL + 5};
+      }
+      
+      ctx.beginPath();
+      ctx.arc(eye1.x, eye1.y, eyeSize, 0, Math.PI * 2);
+      ctx.arc(eye2.x, eye2.y, eyeSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function gameOver() {
+    running = false;
+    clearInterval(gameLoop);
+    if (score > best) {
+      best = score;
+      localStorage.setItem('snakeBest', best);
+      document.getElementById('best').textContent = best;
+    }
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('gameOver').classList.add('show');
+  }
+
+  // Управление клавиатурой
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowUp') setDir(0, -1);
+    if (e.key === 'ArrowDown') setDir(0, 1);
+    if (e.key === 'ArrowLeft') setDir(-1, 0);
+    if (e.key === 'ArrowRight') setDir(1, 0);
+  });
+
+  // Свайпы
+  let touchStart = null;
+  document.addEventListener('touchstart', (e) => {
+    touchStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+  }, {passive: true});
+
+  document.addEventListener('touchend', (e) => {
+    if (!touchStart) return;
+    const dx = e.changedTouches[0].clientX - touchStart.x;
+    const dy = e.changedTouches[0].clientY - touchStart.y;
+    
+    if (Math.abs(dx) < 30 && Math.abs(dy) < 30) return;
+    
+    if (Math.abs(dx) > Math.abs(dy)) {
+      setDir(dx > 0 ? 1 : -1, 0);
+    } else {
+      setDir(0, dy > 0 ? 1 : -1);
+    }
+    touchStart = null;
+  }, {passive: true});
+
+  startGame();
+</script>
+
+</body>
+</html>
